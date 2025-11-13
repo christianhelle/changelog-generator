@@ -81,7 +81,7 @@ pub const ChangelogGenerator = struct {
 
                 var section_list = sections_map.getOrPut(category) catch continue;
                 if (!section_list.found_existing) {
-                    const arr = try std.ArrayList(ChangelogEntry).initCapacity(self.allocator, 10);
+                    const arr = try std.ArrayList(ChangelogEntry).initCapacity(self.allocator, prs.len);
                     section_list.value_ptr.* = arr;
                 }
 
@@ -92,7 +92,7 @@ pub const ChangelogGenerator = struct {
                     .number = pr.number,
                 };
 
-                section_list.value_ptr.appendAssumeCapacity(entry);
+                try section_list.value_ptr.append(self.allocator, entry);
             }
 
             // Convert sections map to array

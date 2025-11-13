@@ -13,16 +13,47 @@ pub const HttpClient = struct {
     }
 
     pub fn get(self: *HttpClient, endpoint: []const u8) ![]u8 {
-        // For now, return a mock response showing the structure
-        // In a real implementation, this would use std.http.Client.fetch()
         const url = try std.fmt.allocPrint(self.allocator, "{s}{s}", .{ self.base_url, endpoint });
         defer self.allocator.free(url);
 
-        std.debug.print("Note: Would fetch from {s}\n", .{url});
-        std.debug.print("Using Authorization: token {s}\n", .{self.token[0..@min(10, self.token.len)]});
+        // Use curl as fallback for HTTP requests
+        const auth_header = try std.fmt.allocPrint(self.allocator, "Authorization: token {s}", .{self.token});
+        defer self.allocator.free(auth_header);
 
-        // Return empty array for now - real implementation needed
-        return try self.allocator.alloc(u8, 0);
+        const user_agent = "User-Agent: changelog-generator/0.1.0";
+
+        const args = [_][]const u8{
+            "curl",
+            "-s",
+            "-H",
+            auth_header,
+            "-H",
+            user_agent,
+            "-H",
+            "Accept: application/vnd.github.v3+json",
+            url,
+        };
+
+        var child = std.process.Child.init(&args, self.allocator);
+        child.stdout_behavior = .Pipe;
+        child.stderr_behavior = .Pipe;
+
+        try child.spawn();
+
+        // Read response with fixed buffer then copy to owned slice
+        var buffer: [10 * 1024 * 1024]u8 = undefined;
+        const bytes_read = try child.stdout.?.readAll(&buffer);
+
+        const term = try child.wait();
+        if (term.Exited != 0) {
+            return error.CurlFailed;
+        }
+
+        if (bytes_read == 0) {
+            return error.EmptyResponse;
+        }
+
+        return try self.allocator.dupe(u8, buffer[0..bytes_read]);
     }
 
     pub fn deinit(self: *HttpClient) void {

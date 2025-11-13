@@ -1,5 +1,10 @@
 const std = @import("std");
 
+pub const ResolvedToken = struct {
+    value: []const u8,
+    owned: bool,
+};
+
 pub const TokenResolver = struct {
     allocator: std.mem.Allocator,
 
@@ -14,25 +19,38 @@ pub const TokenResolver = struct {
     /// 2. Check GITHUB_TOKEN env var
     /// 3. Check GH_TOKEN env var
     /// 4. Try to get token from 'gh auth token' command
-    pub fn resolve(self: TokenResolver, provided_token: ?[]const u8) ![]const u8 {
-        // 1. Check provided token
+    /// Returns a ResolvedToken with owned flag indicating if it needs to be freed
+    pub fn resolve(self: TokenResolver, provided_token: ?[]const u8) !ResolvedToken {
+        // 1. Check provided token (not owned - don't free)
         if (provided_token) |token| {
-            return token;
+            return ResolvedToken{
+                .value = token,
+                .owned = false,
+            };
         }
 
-        // 2. Check GITHUB_TOKEN env var
+        // 2. Check GITHUB_TOKEN env var (owned - must free)
         if (std.process.getEnvVarOwned(self.allocator, "GITHUB_TOKEN")) |token| {
-            return token;
+            return ResolvedToken{
+                .value = token,
+                .owned = true,
+            };
         } else |_| {}
 
-        // 3. Check GH_TOKEN env var
+        // 3. Check GH_TOKEN env var (owned - must free)
         if (std.process.getEnvVarOwned(self.allocator, "GH_TOKEN")) |token| {
-            return token;
+            return ResolvedToken{
+                .value = token,
+                .owned = true,
+            };
         } else |_| {}
 
-        // 4. Try to get token from gh CLI
+        // 4. Try to get token from gh CLI (owned - must free)
         if (self.getTokenFromGhCli()) |token| {
-            return token;
+            return ResolvedToken{
+                .value = token,
+                .owned = true,
+            };
         } else |_| {}
 
         return error.NoTokenAvailable;
@@ -69,8 +87,10 @@ pub const TokenResolver = struct {
         return try self.allocator.dupe(u8, token);
     }
 
-    pub fn deinit(self: TokenResolver, token: []const u8) void {
+    pub fn deinit(self: TokenResolver, resolved_token: ResolvedToken) void {
         // Only free if it was allocated (from gh CLI or env var)
-        self.allocator.free(token);
+        if (resolved_token.owned) {
+            self.allocator.free(resolved_token.value);
+        }
     }
 };

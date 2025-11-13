@@ -35,16 +35,16 @@ pub fn main() !void {
 
     // Resolve GitHub token
     const resolver = token_resolver.TokenResolver.init(allocator);
-    const token = resolver.resolve(parsed_args.token) catch |err| {
+    const resolved_token = resolver.resolve(parsed_args.token) catch |err| {
         std.debug.print("Error: Could not retrieve GitHub token\n", .{});
         std.debug.print("  Tried: --token flag, GITHUB_TOKEN env var, GH_TOKEN env var, gh CLI\n", .{});
         std.debug.print("  Details: {}\n", .{err});
         return err;
     };
-    defer resolver.deinit(token);
+    defer resolver.deinit(resolved_token);
 
     // Initialize GitHub API client
-    var api_client = github_api.GitHubApiClient.init(allocator, token, parsed_args.owner.?, parsed_args.repo.?);
+    var api_client = github_api.GitHubApiClient.init(allocator, resolved_token.value, parsed_args.owner.?, parsed_args.repo.?);
     defer api_client.deinit();
 
     std.debug.print("GitHub Changelog Generator v0.1.0\n", .{});
@@ -55,16 +55,20 @@ pub fn main() !void {
 
     // Fetch releases and PRs
     const releases = api_client.getReleases() catch |err| {
-        std.debug.print("Error fetching releases: {}\n", .{err});
+        if (err == error.GitHubApiError) {
+            std.debug.print("Error: GitHub API returned an error (check token validity and repo access)\n", .{});
+        } else {
+            std.debug.print("Error fetching releases: {}\n", .{err});
+        }
         return err;
     };
-    defer allocator.free(releases);
+    defer api_client.freeReleases(releases);
 
     const prs = api_client.getMergedPullRequests(100) catch |err| {
         std.debug.print("Error fetching pull requests: {}\n", .{err});
         return err;
     };
-    defer allocator.free(prs);
+    defer api_client.freePullRequests(prs);
 
     std.debug.print("Found {d} releases and {d} pull requests\n", .{ releases.len, prs.len });
 
