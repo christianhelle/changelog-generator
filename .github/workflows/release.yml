@@ -39,19 +39,19 @@ jobs:
         include:
           - target: x86_64-linux
             os: ubuntu-latest
-            artifact: argiope-linux-x86_64
+            artifact: changelog-generator-linux-x86_64
           - target: aarch64-linux
             os: ubuntu-latest
-            artifact: argiope-linux-aarch64
+            artifact: changelog-generator-linux-aarch64
           - target: x86_64-macos
             os: macos-latest
-            artifact: argiope-macos-x86_64
+            artifact: changelog-generator-macos-x86_64
           - target: aarch64-macos
             os: macos-latest
-            artifact: argiope-macos-aarch64
+            artifact: changelog-generator-macos-aarch64
           - target: x86_64-windows
             os: windows-latest
-            artifact: argiope-windows-x86_64
+            artifact: changelog-generator-windows-x86_64
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -67,11 +67,11 @@ jobs:
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
-        run: tar czf ${{ matrix.artifact }}.tar.gz -C zig-out/bin argiope
+        run: tar czf ${{ matrix.artifact }}.tar.gz -C zig-out/bin changelog-generator
 
       - name: Package (Windows)
         if: runner.os == 'Windows'
-        run: Compress-Archive -Path zig-out\bin\argiope.exe -DestinationPath ${{ matrix.artifact }}.zip
+        run: Compress-Archive -Path zig-out\bin\changelog-generator.exe -DestinationPath ${{ matrix.artifact }}.zip
 
       - uses: actions/upload-artifact@v4
         with:
