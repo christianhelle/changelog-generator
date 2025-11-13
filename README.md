@@ -127,18 +127,3 @@ src/
 ## License
 
 MIT
-
-## Contributing
-
-Contributions are welcome! The codebase is well-structured and modular, making it easy to add new features.
-
-Key areas for contribution:
-
-- HTTP client implementation
-- Additional output formats
-- Performance optimization
-- Better error handling
-
----
-
-**Status**: MVP with core logic working. Ready for HTTP integration and real-world testing.
